@@ -37,6 +37,7 @@ src/
 ├── server/          -> ServerScriptService/Server (authoritative)
 │   ├── init.server.luau     bootstrap: builds remotes, loads + starts systems
 │   └── Systems/
+│       ├── GameSystem/          match/deploy flow entry (PLAY -> deploy)
 │       ├── MovementSystem/      Heavy Walk + weight -> speed
 │       ├── WoundedSystem/       downed / bleeding state machine
 │       ├── MedicSystem/         healing + revive
@@ -49,6 +50,7 @@ src/
 └── client/          -> StarterPlayer/StarterPlayerScripts/Client
     ├── init.client.luau     bootstrap: loads + starts controllers
     └── Controllers/
+        ├── StartMenuController/ start menu UI + menu camera (PLAY/SETTINGS/Profile)
         ├── InputController/     keybinds -> server intent
         ├── HUDController/       health, inventory, prompts, progress bars
         ├── AnimationController/ local character animation (Heavy Walk stride)

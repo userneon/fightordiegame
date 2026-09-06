@@ -145,6 +145,48 @@ Config.Drone = {
 }
 
 -- ===========================================================================
+-- MENU  (Start Menu UI + menu camera; client-only presentation)
+-- ===========================================================================
+Config.Menu = {
+	-- Branding / text
+	Title = "FIGHT OR DIE",
+	Subtitle = "A NOMAD BROS GAME",
+	Tagline = "DISCIPLINE / BROTHERHOOD / SURVIVE",
+	Platform = "PC ONLY",
+	Version = "v0.1.0",
+	Studio = "NOMAD BROS",
+
+	-- Player info fallbacks. Rank has no backing system yet; the menu reads the
+	-- player attribute "Rank" and falls back to this. Team reads player.Team,
+	-- then the "MenuTeam" attribute, then this.
+	DefaultRank = "PRIVATE I",
+	DefaultTeam = "UNASSIGNED",
+
+	-- Menu camera. The world (Army Base, etc.) is built by the NOMAD BROS team,
+	-- not this repo, so the camera resolves against optional tagged/named parts
+	-- in your map and degrades to a gentle orbit near the origin if none exist.
+	--   * A part named CameraAnchorName -> the camera sits at it (with light sway)
+	--   * A part named CameraTargetName -> the camera looks at it
+	CameraAnchorName = "MenuCamera",
+	CameraTargetName = "MenuCameraTarget",
+	CameraFieldOfView = 55,
+
+	-- Orbit fallback (used when no anchor part is found).
+	CameraOrbitCenter = Vector3.new(0, 6, 0),
+	CameraOrbitRadius = 22,
+	CameraOrbitHeight = 7,
+	CameraOrbitSpeed = 0.035, -- radians/sec — slow drift
+	CameraLookHeight = 4,
+
+	-- Sway applied when an anchor part IS found (keeps the shot alive).
+	CameraSwayAmount = 1.5, -- studs
+	CameraSwaySpeed = 0.25, -- radians/sec
+
+	-- Hover / selection transition time (seconds).
+	TransitionTime = 0.15,
+}
+
+-- ===========================================================================
 -- VISION  (NVG / flashlight / searchlights / blackout)
 -- ===========================================================================
 Config.Vision = {

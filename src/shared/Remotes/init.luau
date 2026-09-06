@@ -26,6 +26,13 @@ local IS_SERVER = RunService:IsServer()
 -- the server instantiates exactly these on startup.
 -- { SystemName = { events = {...}, functions = {...} } }
 local DEFINITIONS = {
+	-- Game flow: menu -> deployment. RequestDeploy is the client "PLAY" intent;
+	-- Deployed is the server ack. The real spawn logic will grow in SpawnSystem;
+	-- GameSystem is the clean entry point the menu talks to.
+	Game = {
+		events = { "RequestDeploy", "Deployed" },
+		functions = {},
+	},
 	Movement = {
 		events = { "SetSprint", "SetCrouch" },
 		functions = {},
