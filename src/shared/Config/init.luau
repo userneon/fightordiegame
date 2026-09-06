@@ -163,6 +163,23 @@ Config.Camera = {
 }
 
 -- ===========================================================================
+-- HUD  (client-only heads-up display tuning)
+-- ===========================================================================
+Config.HUD = {
+	-- Open compass strip (no box/panel — draws directly over the world and fades
+	-- toward both edges). Reused by any faction HUD via the Compass component.
+	Compass = {
+		Width = 460, -- px, total strip width
+		Height = 46, -- px
+		Y = 14, -- px from the top of the screen
+		SpanDegrees = 140, -- total degrees of heading visible across the width
+		TickSpacing = 15, -- a tick + number every N degrees (letters at 45s)
+		Smoothing = 10, -- heading lerp rate; higher = snappier, lower = floatier
+		FadeStart = 0.4, -- 0..1 of the half-width that stays fully opaque before fading
+	},
+}
+
+-- ===========================================================================
 -- MENU  (Start Menu UI + menu camera; client-only presentation)
 -- ===========================================================================
 Config.Menu = {

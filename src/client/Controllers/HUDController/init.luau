@@ -20,12 +20,14 @@
 ]]
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Logger = require(Shared.Modules.Logger)
+
+-- Modular open-world compass (its own render loop + edge fade). Reusable by any
+-- faction HUD.
+local Compass = require(script:WaitForChild("Compass"))
 
 local HUDController = {}
 HUDController.Name = "HUDController"
@@ -154,105 +156,6 @@ local function makeBracket(parent: Instance, ax: number, ay: number)
 	v.Parent = holder
 end
 
--- Compass ------------------------------------------------------------------
-
-local COMPASS_WIDTH = 420
-local COMPASS_FOV = 100 -- degrees of heading shown across the strip
-
-local function shortestAngle(a: number, b: number): number
-	local d = (a - b + 180) % 360 - 180
-	return d
-end
-
-function HUDController:_buildCompass(gui: ScreenGui)
-	local holder = panel("Compass", gui)
-	holder.AnchorPoint = Vector2.new(0.5, 0)
-	holder.Position = UDim2.new(0.5, 0, 0, 14)
-	holder.Size = UDim2.fromOffset(COMPASS_WIDTH, 34)
-	holder.ClipsDescendants = true
-
-	-- Centre marker
-	local center = Instance.new("Frame")
-	center.BorderSizePixel = 0
-	center.BackgroundColor3 = COL_WARN
-	center.AnchorPoint = Vector2.new(0.5, 0)
-	center.Position = UDim2.new(0.5, 0, 0, 0)
-	center.Size = UDim2.fromOffset(2, 34)
-	center.ZIndex = 5
-	center.Parent = holder
-
-	-- Heading readout
-	local heading = label(gui, "000", 14, COL_WARN)
-	heading.AnchorPoint = Vector2.new(0.5, 0)
-	heading.Position = UDim2.new(0.5, 0, 0, 50)
-	heading.Size = UDim2.fromOffset(60, 16)
-	heading.TextXAlignment = Enum.TextXAlignment.Center
-	heading.Font = FONT_BOLD
-
-	-- Marks every 15°, labels at cardinals/intercardinals.
-	local cardinals = {
-		[0] = "N",
-		[45] = "NE",
-		[90] = "E",
-		[135] = "SE",
-		[180] = "S",
-		[225] = "SW",
-		[270] = "W",
-		[315] = "NW",
-	}
-	local marks = {}
-	for a = 0, 345, 15 do
-		local text = cardinals[a]
-		local mark
-		if text then
-			mark = label(holder, text, text == "N" and 15 or 13, text == "N" and COL_WARN or COL_ACCENT)
-			mark.AnchorPoint = Vector2.new(0.5, 0)
-			mark.Size = UDim2.fromOffset(30, 20)
-			mark.Position = UDim2.new(0.5, 0, 0, 8)
-			mark.TextXAlignment = Enum.TextXAlignment.Center
-			mark.Font = FONT_BOLD
-		else
-			mark = Instance.new("Frame")
-			mark.BorderSizePixel = 0
-			mark.BackgroundColor3 = COL_ACCENT_DIM
-			mark.AnchorPoint = Vector2.new(0.5, 0)
-			mark.Size = UDim2.fromOffset(1, 8)
-			mark.Position = UDim2.new(0.5, 0, 0, 22)
-			mark.Parent = holder
-		end
-		marks[a] = mark
-	end
-
-	self._compassMarks = marks
-	self._compassHeading = heading
-	self._compassHalf = COMPASS_WIDTH / 2
-end
-
-function HUDController:_updateCompass()
-	local cam = Workspace.CurrentCamera
-	if not cam or not self._compassMarks then
-		return
-	end
-	local look = cam.CFrame.LookVector
-	-- Heading: 0 = +Z (north-ish convention), clockwise.
-	local yaw = math.deg(math.atan2(look.X, look.Z))
-	yaw = (yaw + 360) % 360
-
-	self._compassHeading.Text = string.format("%03d", math.floor(yaw + 0.5) % 360)
-
-	local half = self._compassHalf
-	for a, mark in self._compassMarks do
-		local delta = shortestAngle(a, yaw)
-		if math.abs(delta) <= COMPASS_FOV / 2 then
-			mark.Visible = true
-			local x = 0.5 + (delta / COMPASS_FOV)
-			mark.Position = UDim2.new(x, 0, 0, mark:IsA("TextLabel") and 8 or 22)
-		else
-			mark.Visible = false
-		end
-	end
-end
-
 -- Build --------------------------------------------------------------------
 
 function HUDController:Init()
@@ -275,8 +178,8 @@ function HUDController:_build()
 	makeBracket(gui, 0, 1)
 	makeBracket(gui, 1, 1)
 
-	-- Compass
-	self:_buildCompass(gui)
+	-- Compass (modular, open over the world — no box, fades at both edges)
+	self._compass = Compass.new(gui)
 
 	-- Bottom-left status cluster
 	local status = Instance.new("Frame")
@@ -423,10 +326,7 @@ function HUDController:Start()
 		end)
 	end
 
-	-- Compass follows the camera every frame.
-	RunService.RenderStepped:Connect(function()
-		self:_updateCompass()
-	end)
+	-- The compass owns its own render loop (see Compass component).
 
 	log.info("military HUD online — compass, HP/STA bars, load, callsign")
 end
