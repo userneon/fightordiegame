@@ -15,13 +15,32 @@ local Config = {}
 -- MOVEMENT  (Heavy Walk + Inventory weight -> speed)
 -- ===========================================================================
 Config.Movement = {
+	-- Base speeds (studs/s)
 	BaseWalkSpeed = 16, -- Roblox default
-	SprintSpeed = 22,
-	-- Weight -> speed. Speed is reduced as carried weight approaches the cap.
-	MaxCarryWeight = 40, -- kg (soft cap; above this, heavy penalty)
-	MinWalkSpeed = 6, -- speed floor when fully overloaded
-	HeavyWalkThreshold = 25, -- kg at which "Heavy Walk" state engages
-	SpeedPenaltyPerKg = 0.25, -- studs/s lost per kg over threshold
+	SprintSpeed = 24,
+	CrouchSpeed = 8,
+	MinWalkSpeed = 6, -- absolute speed floor when fully overloaded
+
+	-- Jump (we use JumpPower so it can be tuned/penalised by state)
+	JumpPower = 50,
+	CrouchJumpPower = 0, -- no jumping while crouched
+
+	-- Weight -> speed. Speed is reduced as carried weight passes the threshold.
+	MaxCarryWeight = 40, -- kg (soft cap; at/above this, maximum penalty)
+	HeavyWalkThreshold = 25, -- kg at which the "Heavy Walk" state engages
+	SpeedPenaltyPerKg = 0.25, -- studs/s lost per kg over HeavyWalkThreshold
+
+	-- Stamina (sprinting consumes it; it regenerates when not sprinting)
+	MaxStamina = 100,
+	SprintStaminaDrain = 12, -- per second while sprinting
+	StaminaRegen = 14, -- per second while recovering
+	StaminaRegenDelay = 1.2, -- seconds after sprint stops before regen begins
+	SprintMinStamina = 5, -- need at least this much stamina to *start* sprinting
+	HeavyStaminaDrainMultiplier = 1.8, -- sprint drains faster while over Heavy threshold
+
+	-- Update rate of the server movement loop (seconds). Lower = smoother
+	-- stamina/speed, slightly more work. Heartbeat-driven, so this is a throttle.
+	UpdateInterval = 0.1,
 }
 
 -- ===========================================================================

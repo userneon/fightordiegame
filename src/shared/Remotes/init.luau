@@ -27,7 +27,7 @@ local IS_SERVER = RunService:IsServer()
 -- { SystemName = { events = {...}, functions = {...} } }
 local DEFINITIONS = {
 	Movement = {
-		events = { "SetSprint" },
+		events = { "SetSprint", "SetCrouch" },
 		functions = {},
 	},
 	Medic = {
