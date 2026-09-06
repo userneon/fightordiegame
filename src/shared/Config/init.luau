@@ -44,6 +44,34 @@ Config.Movement = {
 }
 
 -- ===========================================================================
+-- ANIMATION  (client, feel-only — driven by server state attributes)
+-- ===========================================================================
+Config.Animation = {
+	-- Heavy Walk: a slower, laboured stride played locally when the server sets
+	-- the "HeavyWalk" attribute (weight >= HeavyWalkThreshold). Authored assets
+	-- live with the NOMAD BROS team; drop the published Animation asset id here
+	-- (e.g. "rbxassetid://1234567890"). Leave "" to keep the controller dormant
+	-- until the asset exists — it degrades gracefully rather than erroring.
+	HeavyWalkAnimationId = "",
+
+	-- Plays above Roblox's default Core-priority walk/run so it overrides it.
+	HeavyWalkPriority = Enum.AnimationPriority.Movement,
+
+	-- Cross-fade times (seconds) when the heavy stride starts / stops.
+	HeavyWalkFadeIn = 0.25,
+	HeavyWalkFadeOut = 0.2,
+
+	-- Only animate once the character is genuinely moving (MoveDirection magnitude).
+	MoveThreshold = 0.05,
+
+	-- The stride is authored for this walk speed (studs/s). Playback speed is
+	-- scaled by actual WalkSpeed / this so feet don't slide as weight bites.
+	HeavyWalkReferenceSpeed = 16,
+	MinPlaybackSpeed = 0.5,
+	MaxPlaybackSpeed = 1.5,
+}
+
+-- ===========================================================================
 -- HEALTH / WOUNDED / BLEEDING
 -- ===========================================================================
 Config.Health = {

@@ -51,6 +51,7 @@ src/
     └── Controllers/
         ├── InputController/     keybinds -> server intent
         ├── HUDController/       health, inventory, prompts, progress bars
+        ├── AnimationController/ local character animation (Heavy Walk stride)
         └── NvgController/       NVG + flashlight local rendering
 ```
 
