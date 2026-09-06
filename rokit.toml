@@ -1,0 +1,9 @@
+# Rokit toolchain manifest for FIGHT OR DIE (NOMAD BROS)
+# Install Rokit (https://github.com/rojo-rbx/rokit), then run `rokit install`
+# in this folder to get pinned versions of every tool below.
+
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
+stylua = "JohnnyMorganz/StyLua@2.0.2"
+selene = "Kampfkarren/selene@0.28.0"
+wally = "UpliftGames/wally@0.3.2"

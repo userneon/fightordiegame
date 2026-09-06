@@ -1,0 +1,28 @@
+# Roblox / Rojo
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+*.rbxm
+*.rbxmx
+
+# Rojo sourcemap output
+sourcemap.json
+
+# Wally package manager
+/Packages/
+/ServerPackages/
+/DevPackages/
+wally.lock
+
+# Tooling caches
+/.rokit/
+/.aftman/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.log
