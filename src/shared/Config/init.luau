@@ -145,6 +145,24 @@ Config.Drone = {
 }
 
 -- ===========================================================================
+-- CAMERA  (gameplay is first-person only; client-only)
+-- ===========================================================================
+Config.Camera = {
+	-- Normal gameplay is hard-locked to first person. The menu / vehicle /
+	-- spectator cameras are separate modes owned elsewhere, so this only governs
+	-- the on-foot gameplay camera.
+	GameplayFieldOfView = 70, -- reset from the menu's cinematic FOV on deploy
+
+	-- First-person body awareness: render the local character in first person so
+	-- weapon / hand / body / interaction animations are actually visible (Roblox
+	-- otherwise hides the body and shows only tool arms).
+	FirstPersonBody = true,
+	-- Hide the head + hat/hair/face accessories locally so the camera isn't
+	-- inside the head mesh. Body, arms, and legs stay visible.
+	HideHeadInFirstPerson = true,
+}
+
+-- ===========================================================================
 -- MENU  (Start Menu UI + menu camera; client-only presentation)
 -- ===========================================================================
 Config.Menu = {

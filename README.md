@@ -51,6 +51,7 @@ src/
     ├── init.client.luau     bootstrap: loads + starts controllers
     └── Controllers/
         ├── StartMenuController/ start menu UI + menu camera (PLAY/SETTINGS/Profile)
+        ├── CameraController/    first-person-only gameplay camera (modal: menu/vehicle/spectator seams)
         ├── InputController/     keybinds -> server intent
         ├── HUDController/       health, inventory, prompts, progress bars
         ├── AnimationController/ local character animation (Heavy Walk stride)
