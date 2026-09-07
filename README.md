@@ -31,26 +31,47 @@ default.project.json          Rojo mapping (filesystem -> Studio services)
 src/
 ├── shared/          -> ReplicatedStorage/Shared   (server + client)
 │   ├── Config/          all tunable constants, one place
+│   ├── Data/            gameplay DATA, separate from logic (factions, ranks,
+│   │                    roles, body parts, materials, ammo, weapons, items)
 │   ├── Remotes/         single source of truth for every RemoteEvent/Function
 │   ├── Types/           shared Luau type definitions
-│   └── Modules/         shared utilities (Logger, future helpers)
+│   └── Modules/         Logger, Registry (service locator), HoldTracker
 ├── server/          -> ServerScriptService/Server (authoritative)
-│   ├── init.server.luau     bootstrap: builds remotes, loads + starts systems
-│   └── Systems/
-│       ├── MovementSystem/      Heavy Walk + weight -> speed
-│       ├── WoundedSystem/       downed / bleeding state machine
-│       ├── MedicSystem/         healing + revive
-│       ├── CarrySystem/         carry downed players
-│       ├── InventorySystem/     inventory, weight, corpse search
-│       ├── SpawnSystem/         spawn / respawn at tagged zones
-│       ├── VehicleSystem/       enter/exit, ownership, damage
-│       ├── DroneSystem/         deploy, range/battery/altitude
-│       └── VisionSystem/        power / blackout / searchlights (authoritative)
+│   ├── init.server.luau     ServerBootstrap: remotes, registry, Init/Start
+│   └── Services/
+│       ├── GameService/         PLAY -> deploy flow (no auto-spawn)
+│       ├── PlayerService/       lifecycle + Alive/Wounded/Critical/Dead
+│       ├── FactionService/      Army/Terrorist assignment + switch rules
+│       ├── RankService/         XP, promotion, permission gate (authority)
+│       ├── DataService/         DataStore profiles, autosave, migration
+│       ├── SpawnService/        tagged spawn zones, role-scaled respawn
+│       ├── MovementService/     Heavy Walk + weight -> speed
+│       ├── InventoryService/    slots, weight, equip, death loot
+│       ├── BallisticsService/   simulated rounds (no Part per bullet)
+│       ├── WeaponService/       data-driven weapons, shot validation
+│       ├── DamageService/       single damage authority (zones, armour)
+│       ├── ArmorService/        helmet/plate, durability, first-impact rule
+│       ├── MedicalService/      medic-only hold-to-treat / revive
+│       ├── CarryService/        server-welded casualty carrying
+│       ├── CorpseService/       persistent corpses + faction loot rules
+│       ├── InteractionService/  doors, containers, mission objects (by tag)
+│       ├── ObjectiveService/    hold-E objectives (by tag)
+│       ├── MissionService/      mission definitions over objectives
+│       ├── EagleEyeService/     Army recon, detection-gated (no wallhack)
+│       ├── VehicleService/      ownership, seats, damage, crash injury
+│       ├── HelicopterService/   flight/radar/lock state
+│       ├── DroneService/        deploy, battery, range/signal
+│       ├── VisionService/       NVG/flashlight authority + blackout
+│       ├── AudioService/        audio EVENT routing (no assets)
+│       └── AntiCheatService/    validation, strikes, lock/ban with evidence
 └── client/          -> StarterPlayer/StarterPlayerScripts/Client
     ├── init.client.luau     bootstrap: loads + starts controllers
     └── Controllers/
+        ├── StartMenuController/ start menu UI + menu camera (PLAY/SETTINGS/Profile)
+        ├── CameraController/    first-person-only gameplay camera (modal: menu/vehicle/spectator seams)
         ├── InputController/     keybinds -> server intent
         ├── HUDController/       health, inventory, prompts, progress bars
+        ├── AnimationController/ local character animation (Heavy Walk stride)
         └── NvgController/       NVG + flashlight local rendering
 ```
 
@@ -69,7 +90,27 @@ src/
   grouped by system, created once by the server.
 - **Tuning in one place.** All constants live in `shared/Config`.
 
+## Connecting your world
+
+No service creates map geometry. They find the world you build in Studio by
+**CollectionService tag** and **attributes**, so the world stays entirely your
+work. Tag things and they come alive:
+
+| Tag | Read by | Notes |
+|---|---|---|
+| `ArmySpawn` / `TerroristSpawn` | SpawnService | any BasePart works as a spawn pad |
+| `Interactable` | InteractionService | attrs: `InteractKind`, `InteractHold`, `RequiredPerm`, `RequiredItem`, `RequiredFaction` |
+| `Objective` | ObjectiveService | attrs: `ObjectiveId`, `ObjectiveKind`, `HoldTime`, `Faction`, `Radius` |
+| `Vehicle` | VehicleService | attrs: `VehicleType`, `MaxHealth`, `RequiredPerm`; Seats/VehicleSeats inside |
+| `Helicopter` | HelicopterService | attrs: `MaxHealth`, `Faction`, `RequiredPerm` |
+| `PowerSource` | VisionService | toggling it drives blackout |
+| `Tire` | VehicleService | per-tire damage pools |
+
 ## Status
 
-Foundation scaffolded. Each system is a wired stub awaiting its detailed spec.
-Systems are implemented one at a time into this structure.
+Server-side gameplay foundation implemented: player/character state, factions,
+ranks & permissions, combat (ballistics, weapons, damage, armour), survival
+(corpses, medical, carry), persistence, anti-cheat, and the world-facing
+frameworks (interaction, objectives/missions, vehicles, helicopters, recon).
+
+Client is feel-only: Start Menu, first-person camera, HUD/compass, input.
