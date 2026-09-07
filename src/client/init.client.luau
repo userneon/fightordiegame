@@ -18,6 +18,12 @@ local Logger = require(Shared.Modules.Logger)
 
 local log = Logger.scope("Client")
 
+-- Build marker: bump when the client changes shape. If this line is missing or
+-- shows an older tag in Output, Studio is running stale code and no amount of
+-- fixing here will change what you see in game.
+local BUILD = "2024-startmenu-deployflow-2"
+log.info("build " .. BUILD)
+
 local controllersFolder = script:WaitForChild("Controllers")
 local controllers: { any } = {}
 

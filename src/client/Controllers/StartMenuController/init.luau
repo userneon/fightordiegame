@@ -69,12 +69,36 @@ function StartMenuController:Init()
 end
 
 function StartMenuController:Start()
-	self:_build()
-	self:_setupCamera()
-	self:_bindPlayerData()
-	self:_loadAvatar()
-	self:_showScreen("menu")
-	self:_bindDeployment()
+	-- Each step is isolated: one failing step (a missing avatar, a camera
+	-- hiccup) must never take the rest of the menu down with it. Previously a
+	-- throw anywhere here skipped _bindDeployment, which silently left PLAY
+	-- unable to ever close the menu.
+	local function step(name: string, fn: () -> ())
+		local ok, err = pcall(fn)
+		if not ok then
+			log.error(string.format("Start step '%s' failed: %s", name, tostring(err)))
+		end
+	end
+
+	step("build", function()
+		self:_build()
+	end)
+	step("camera", function()
+		self:_setupCamera()
+	end)
+	step("playerData", function()
+		self:_bindPlayerData()
+	end)
+	step("avatar", function()
+		self:_loadAvatar()
+	end)
+	step("showScreen", function()
+		self:_showScreen("menu")
+	end)
+	step("deployment", function()
+		self:_bindDeployment()
+	end)
+
 	log.info("start menu online (PRE_DEPLOYMENT)")
 end
 
@@ -382,9 +406,17 @@ function StartMenuController:_showScreen(which: string)
 		return
 	end
 
-	self._menuLayer.Visible = which == "menu"
-	self._settingsFrame.Visible = which == "settings"
-	self._profile.frame.Visible = which == "profile"
+	-- Nil-guarded: if one screen failed to build, the others still switch. A
+	-- missing Profile screen must not make the SETTINGS button dead.
+	if self._menuLayer then
+		self._menuLayer.Visible = which == "menu"
+	end
+	if self._settingsFrame then
+		self._settingsFrame.Visible = which == "settings"
+	end
+	if self._profile and self._profile.frame then
+		self._profile.frame.Visible = which == "profile"
+	end
 	log.info("screen -> " .. which)
 
 	if which == "menu" then
