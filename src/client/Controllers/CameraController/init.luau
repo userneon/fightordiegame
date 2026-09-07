@@ -175,9 +175,14 @@ function CameraController:Start()
 	-- Start hands-off; the Start Menu owns the camera until the player deploys.
 	self:setMode("Menu")
 
-	local deployed = Remotes.getEvent("Game", "Deployed")
-	deployed.OnClientEvent:Connect(function()
-		self:setMode("Gameplay")
+	-- Fetch the deploy remote in a task so a not-yet-created remote can never
+	-- block the client bootstrap (which would stop every later controller,
+	-- including the Start Menu, from starting).
+	task.spawn(function()
+		local deployed = Remotes.getEvent("Game", "Deployed")
+		deployed.OnClientEvent:Connect(function()
+			self:setMode("Gameplay")
+		end)
 	end)
 
 	-- If the player is already deployed when this runs (e.g. a rejoin or a future

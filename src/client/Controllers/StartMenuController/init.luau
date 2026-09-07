@@ -53,7 +53,8 @@ function StartMenuController:Init()
 	self._rows = {} :: { [string]: any }
 	self._selected = "Play" -- PLAY highlighted at rest
 	self._tweenInfo = TweenInfo.new(self._config.TransitionTime, Enum.EasingStyle.Quad, Enum.EasingStyle.Out)
-	self._requestDeploy = Remotes.getEvent("Game", "RequestDeploy")
+	-- NOTE: the deploy remote is fetched lazily (in _play) via task.spawn so a
+	-- not-yet-created remote can never block the client bootstrap / menu build.
 end
 
 function StartMenuController:Start()
@@ -321,8 +322,13 @@ end
 
 function StartMenuController:_play()
 	-- Fire the server deploy intent (GameSystem handles it; real spawn logic
-	-- grows in SpawnSystem). Then close the menu and return the camera.
-	self._requestDeploy:FireServer()
+	-- grows in SpawnSystem). Fetched + fired in a task so a missing/late remote
+	-- can never block the UI. Then close the menu and return the camera.
+	task.spawn(function()
+		local ev = self._requestDeploy or Remotes.getEvent("Game", "RequestDeploy")
+		self._requestDeploy = ev
+		ev:FireServer()
+	end)
 	self._gui.Enabled = false
 	self:_teardownCamera()
 	log.info("PLAY -> deploy requested")
