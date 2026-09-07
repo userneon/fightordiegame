@@ -27,22 +27,44 @@ local IS_SERVER = RunService:IsServer()
 -- { SystemName = { events = {...}, functions = {...} } }
 local DEFINITIONS = {
 	-- Game flow: menu -> deployment. RequestDeploy is the client "PLAY" intent;
-	-- Deployed is the server ack. The real spawn logic will grow in SpawnSystem;
-	-- GameSystem is the clean entry point the menu talks to.
+	-- Deployed is the server ack (GameService loads the character on deploy).
 	Game = {
 		events = { "RequestDeploy", "Deployed" },
+		functions = {},
+	},
+	-- Character state machine (Alive/Wounded/Critical/Dead + bleeding).
+	Player = {
+		events = { "StateChanged" },
+		functions = {},
+	},
+	Faction = {
+		events = { "RequestFaction", "FactionChanged" },
+		functions = {},
+	},
+	Rank = {
+		events = { "RankChanged", "RequestPromote" },
 		functions = {},
 	},
 	Movement = {
 		events = { "SetSprint", "SetCrouch" },
 		functions = {},
 	},
-	Medic = {
-		events = { "RequestHeal", "RequestRevive", "TreatmentProgress" },
+	Weapon = {
+		events = { "RequestEquip", "RequestUnequip", "RequestReload", "RequestFireMode", "WeaponState" },
+		functions = {},
+	},
+	-- FireWeapon is the only client->server shot intent; everything about the
+	-- outcome (trace, penetration, damage) is decided server-side.
+	Combat = {
+		events = { "FireWeapon", "ShotFired", "HitMarker", "DamageTaken" },
+		functions = {},
+	},
+	Medical = {
+		events = { "RequestTreat", "CancelTreat", "TreatmentProgress" },
 		functions = {},
 	},
 	Wounded = {
-		events = { "StateChanged", "BleedTick" },
+		events = { "BleedTick" },
 		functions = {},
 	},
 	Carry = {
@@ -50,15 +72,23 @@ local DEFINITIONS = {
 		functions = {},
 	},
 	Inventory = {
-		events = { "InventoryChanged", "RequestUseItem", "RequestDropItem" },
-		functions = { "SearchCorpse", "RequestTransfer" },
+		events = { "InventoryChanged", "RequestUseItem", "RequestDropItem", "RequestEquipItem" },
+		functions = { "RequestTransfer" },
+	},
+	Corpse = {
+		events = { "CorpseCreated", "CorpseRemoved" },
+		functions = { "SearchCorpse", "LootItem" },
 	},
 	Spawn = {
 		events = { "RequestRespawn", "Respawned" },
 		functions = {},
 	},
 	Vehicle = {
-		events = { "RequestEnter", "RequestExit", "VehicleInput" },
+		events = { "RequestEnter", "RequestExit", "VehicleInput", "VehicleState" },
+		functions = {},
+	},
+	Helicopter = {
+		events = { "RequestEnter", "RequestExit", "HeliInput", "HeliState", "RadarUpdate", "LockState" },
 		functions = {},
 	},
 	Drone = {
@@ -68,6 +98,39 @@ local DEFINITIONS = {
 	Vision = {
 		events = { "ToggleNvg", "ToggleFlashlight", "BlackoutChanged" },
 		functions = {},
+	},
+	-- Army-only recon. The server decides what data the client is allowed to
+	-- see (no wallhack) — the client never filters.
+	EagleEye = {
+		events = { "RequestEagleEye", "EagleEyeData", "EagleEyeState" },
+		functions = {},
+	},
+	Mission = {
+		events = { "MissionState", "ObjectiveState" },
+		functions = {},
+	},
+	Objective = {
+		events = { "RequestHold", "ReleaseHold", "ObjectiveProgress" },
+		functions = {},
+	},
+	-- Generic world interaction (doors, containers, mission objects). The world
+	-- objects themselves are yours; these are the validated request channels.
+	Interaction = {
+		events = { "RequestInteract", "CancelInteract", "InteractionProgress", "InteractionResult" },
+		functions = {},
+	},
+	-- Server tells clients WHAT to play and where; no audio assets live here.
+	Audio = {
+		events = { "PlaySound", "PlaySpatial", "StopSound" },
+		functions = {},
+	},
+	AntiCheat = {
+		events = { "Flagged", "InputLock" },
+		functions = {},
+	},
+	Profile = {
+		events = { "ProfileLoaded", "SettingsChanged" },
+		functions = { "GetProfile" },
 	},
 }
 

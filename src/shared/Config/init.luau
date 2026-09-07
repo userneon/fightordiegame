@@ -232,4 +232,140 @@ Config.Vision = {
 	BlackoutAmbient = Color3.fromRGB(5, 5, 8),
 }
 
+-- ===========================================================================
+-- COMBAT  (server-authoritative damage + state transitions)
+-- ===========================================================================
+Config.Combat = {
+	-- A player entering Wounded is downed, not dead. Taking further damage
+	-- while downed pushes them to Critical, which bleeds out much faster.
+	CriticalHealthFraction = 0.0,
+	CriticalBleedMultiplier = 3.0,
+	-- Bleed-out seconds. Critical uses BleedOutTime / CriticalBleedMultiplier.
+	SelfReviveEnabled = false,
+	-- Instant death regardless of state (e.g. unhelmeted headshot over this).
+	InstantDeathDamage = 150,
+	-- Friendly fire multiplier (0 disables damage between teammates).
+	FriendlyFireMultiplier = 0,
+	-- Max distance (studs) a melee/interaction damage source may act over.
+	MaxMeleeDistance = 10,
+}
+
+-- ===========================================================================
+-- BALLISTICS  (simulated, never a Part per bullet)
+-- ===========================================================================
+Config.Ballistics = {
+	-- Integration step. Smaller = more accurate arc, more raycasts.
+	StepTime = 1 / 30,
+	-- Hard caps so a stray round can never run forever.
+	MaxSteps = 240,
+	MaxLifetime = 6, -- seconds
+	-- Penetration
+	MaxPenetrations = 3,
+	PenetrationProbeStep = 0.25, -- studs, when measuring wall thickness
+	-- How far behind the reported muzzle a client's origin may sit before the
+	-- shot is rejected as spoofed.
+	MaxOriginError = 12, -- studs
+	-- How far a client's claimed aim direction may deviate from the weapon's
+	-- own spread cone before rejection (multiplier on spreadMoa).
+	SpreadTolerance = 2.5,
+}
+
+-- ===========================================================================
+-- HELMET / ARMOR
+-- ===========================================================================
+Config.Armor = {
+	-- Fraction of incoming damage a helmet absorbs while it still has
+	-- durability. The FIRST head impact is always survivable if the helmet is
+	-- intact (see ArmorService), which is the "first head impact" rule.
+	HelmetAbsorb = 0.75,
+	PlateAbsorb = 0.6,
+	-- Durability removed per point of damage absorbed.
+	DurabilityPerDamage = 1.0,
+	-- Once durability hits 0 the piece is Broken and absorbs nothing.
+	BrokenAbsorb = 0,
+	-- Penetration value above which armour is bypassed entirely.
+	PenetrationBypass = 40,
+}
+
+-- ===========================================================================
+-- CORPSE
+-- ===========================================================================
+Config.Corpse = {
+	-- Corpses persist through the owner's respawn (they are NOT cleaned up on
+	-- respawn) — the battlefield keeps its dead.
+	Lifetime = 600, -- seconds before a corpse is reclaimed (0 = never)
+	MaxCorpses = 120, -- global cap; oldest recycled first (large-server safety)
+	SearchTime = 3, -- seconds to search a corpse
+	MaxSearchDistance = 10,
+}
+
+-- ===========================================================================
+-- EAGLE EYE  (Army-only recon)
+-- ===========================================================================
+Config.EagleEye = {
+	Cooldown = 600, -- 10 minutes between uses
+	Duration = 20, -- seconds the tactical view stays up
+	-- Enemies are only revealed when legitimately detected — never a wallhack.
+	EnemyRevealRadius = 400,
+	RequireLineOfSight = true,
+	-- Enemies inside a building (roof between them and the sky) stay hidden.
+	SkyOcclusionCheck = true,
+	RefreshInterval = 1,
+}
+
+-- ===========================================================================
+-- MISSIONS / OBJECTIVES
+-- ===========================================================================
+Config.Mission = {
+	DefaultHoldTime = 300, -- 5 minutes
+	-- Any movement beyond this (studs) resets a hold.
+	HoldMoveTolerance = 4,
+	HoldTickInterval = 0.2,
+	ExtractionRadius = 25,
+}
+
+-- ===========================================================================
+-- INTERACTION  (doors, containers, mission objects you place in the world)
+-- ===========================================================================
+Config.Interaction = {
+	MaxDistance = 12, -- studs the player may be from the object
+	DefaultHoldTime = 5, -- "hold E for 5 seconds"
+	MoveTolerance = 3, -- studs of movement that cancels a hold
+	TickInterval = 0.1,
+}
+
+-- ===========================================================================
+-- ANTI-CHEAT  (validation thresholds; generous enough to avoid false flags)
+-- ===========================================================================
+Config.AntiCheat = {
+	-- Movement: allow well above sprint speed to absorb latency + physics.
+	MaxSpeedMultiplier = 2.2,
+	MaxVerticalSpeed = 180,
+	-- Studs a player may jump position in one check without a valid teleport.
+	MaxTeleportDistance = 90,
+	CheckInterval = 1,
+	-- Fire rate: allow this fraction of the weapon interval as slack.
+	FireRateTolerance = 0.85,
+	-- Strikes before action. Latency spikes should never reach this.
+	StrikesBeforeFlag = 5,
+	StrikesBeforeLock = 8,
+	StrikesBeforeBan = 12,
+	-- Kick only after a ban is confirmed and evidence is recorded.
+	KickAfterBan = true,
+}
+
+-- ===========================================================================
+-- DATA / PROFILE  (DataStore-compatible persistence)
+-- ===========================================================================
+Config.Data = {
+	StoreName = "FOD_Profiles_v1",
+	ProfileVersion = 1,
+	AutoSaveInterval = 120, -- seconds
+	MaxRetries = 4,
+	RetryBackoff = 2, -- seconds, doubled per retry
+	-- Studio sessions use a volatile in-memory store by default so testing
+	-- never writes live player data.
+	UseMockInStudio = true,
+}
+
 return Config
