@@ -28,6 +28,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -97,6 +99,9 @@ function StartMenuController:Start()
 	end)
 	step("deployment", function()
 		self:_bindDeployment()
+	end)
+	step("inputFallback", function()
+		self:_bindInputFallback()
 	end)
 
 	log.info("start menu online (PRE_DEPLOYMENT)")
@@ -274,14 +279,107 @@ function StartMenuController:_makeRow(parent: Instance, id: string, text: string
 		handle.hovered = false
 		self:_refreshRow(handle)
 	end)
-	-- Logged so a dead button is instantly distinguishable from a dead flow:
-	-- if you click and see nothing here, the problem is input, not the server.
+	-- Three independent input paths. Activated is the correct one; the other two
+	-- exist because GUI input routing can be swallowed by things outside this
+	-- controller's control, and a main menu button must never be dead.
+	-- _triggerRow de-duplicates so a single click only ever acts once.
 	button.Activated:Connect(function()
-		log.info(string.format("%s clicked", id))
-		self:_onRowActivated(id)
+		self:_triggerRow(id, "Activated")
+	end)
+	button.MouseButton1Click:Connect(function()
+		self:_triggerRow(id, "MouseButton1Click")
 	end)
 
 	return handle
+end
+
+--[[
+	Single entry point for a row being chosen, whatever path delivered it.
+	Debounced so the redundant input paths cannot double-fire one click.
+]]
+function StartMenuController:_triggerRow(id: string, source: string)
+	local handle = self._rows[id]
+	if not handle then
+		return
+	end
+	local now = os.clock()
+	if handle.lastTrigger and now - handle.lastTrigger < 0.25 then
+		return
+	end
+	handle.lastTrigger = now
+	log.info(string.format("%s clicked (via %s)", id, source))
+	self:_onRowActivated(id)
+end
+
+--[[
+	Raw-input fallback.
+
+	GUI `Activated` can be starved if anything upstream consumes the click.
+	This listens to UserInputService directly and hit-tests the row rectangles
+	itself, so the menu works regardless of GUI input routing. It also reports
+	what is actually stacked under the cursor on the first few clicks, which
+	names the culprit instead of leaving us guessing.
+]]
+function StartMenuController:_bindInputFallback()
+	self._probeCount = 0
+
+	UserInputService.InputBegan:Connect(function(input)
+		if self._state == DEPLOYED then
+			return
+		end
+		if not self._menuLayer or not self._menuLayer.Visible then
+			return
+		end
+		if
+			input.UserInputType ~= Enum.UserInputType.MouseButton1
+			and input.UserInputType ~= Enum.UserInputType.Touch
+		then
+			return
+		end
+
+		-- IgnoreGuiInset=true puts GUI space at the true screen origin, while
+		-- input positions sit below the topbar — so test both mappings.
+		local inset = GuiService:GetGuiInset()
+		local raw = Vector2.new(input.Position.X, input.Position.Y)
+		local adjusted = raw + Vector2.new(inset.X, inset.Y)
+
+		-- Diagnostic: name whatever is on top of the cursor, first 3 clicks.
+		if self._probeCount < 3 then
+			self._probeCount += 1
+			local ok, objects = pcall(function()
+				return self._player.PlayerGui:GetGuiObjectsAtPosition(adjusted.X, adjusted.Y)
+			end)
+			if ok and objects then
+				local names = {}
+				for index, object in objects do
+					if index > 5 then
+						break
+					end
+					table.insert(names, object:GetFullName())
+				end
+				log.info(string.format("click probe @(%d,%d) over: %s", adjusted.X, adjusted.Y,
+					#names > 0 and table.concat(names, " | ") or "<nothing>"))
+			end
+		end
+
+		for id, handle in self._rows do
+			local button = handle.button
+			if button and button.Visible then
+				local topLeft = button.AbsolutePosition
+				local size = button.AbsoluteSize
+				local function inside(point: Vector2): boolean
+					return point.X >= topLeft.X
+						and point.X <= topLeft.X + size.X
+						and point.Y >= topLeft.Y
+						and point.Y <= topLeft.Y + size.Y
+				end
+				if inside(adjusted) or inside(raw) then
+					self:_triggerRow(id, "raw input")
+					return
+				end
+			end
+		end
+	end)
 end
 
 function StartMenuController:_buildMenu(parent: Instance)
