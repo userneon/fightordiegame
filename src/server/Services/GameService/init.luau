@@ -56,18 +56,20 @@ function GameService:_deploy(player: Player, requestedFaction: string?)
 		factions:autoAssign(player)
 	end
 
-	players:setDeployed(player, true)
-
+	-- Spawn FIRST, and only then mark them deployed. The "Deployed" attribute is
+	-- what closes the client's Start Menu and enables the gameplay HUD, so it
+	-- must never be true for a player who has no character: a failed spawn
+	-- leaves them safely in the menu, free to press PLAY again.
 	local spawns = Registry.expect("SpawnService")
 	local ok, err = pcall(function()
 		spawns:spawnPlayer(player)
 	end)
 	if not ok then
 		log.error(string.format("spawn failed for %s: %s", player.Name, tostring(err)))
-		players:setDeployed(player, false)
 		return
 	end
 
+	players:setDeployed(player, true)
 	self._deployedEvent:FireClient(player)
 	log.info(string.format("%s deployed as %s", player.Name, state.faction))
 end

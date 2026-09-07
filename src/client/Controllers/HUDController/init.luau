@@ -169,6 +169,10 @@ function HUDController:_build()
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 10
+	-- PRE_DEPLOYMENT: the gameplay HUD does not exist for the player yet. The
+	-- Start Menu is an identity screen, so HP / stamina / load / compass / ammo
+	-- stay hidden until the SERVER says the player is deployed.
+	gui.Enabled = false
 	gui.Parent = self._player:WaitForChild("PlayerGui")
 	self._gui = gui
 
@@ -328,7 +332,43 @@ function HUDController:Start()
 
 	-- The compass owns its own render loop (see Compass component).
 
-	log.info("military HUD online — compass, HP/STA bars, load, callsign")
+	self:_bindDeployState()
+
+	log.info("military HUD ready — hidden until DEPLOYED")
+end
+
+--[[
+	PRE_DEPLOYMENT / DEPLOYED gate.
+
+	"Deployed" is a server-set player attribute (PlayerService publishes it), so
+	the HUD's visibility follows the server's truth rather than any local guess:
+	  PRE_DEPLOYMENT -> HUD hidden (Start Menu shows identity only)
+	  DEPLOYED       -> HUD enabled (HP, stamina, load, compass, ammo)
+]]
+function HUDController:_setDeployed(deployed: boolean)
+	if not self._gui then
+		return
+	end
+	if self._gui.Enabled == deployed then
+		return
+	end
+	self._gui.Enabled = deployed
+	if deployed then
+		-- Refresh everything on the way in so nothing shows a stale value.
+		self:_refreshHealth()
+		self:_refreshStamina()
+		self:_refreshLoad()
+		self:_refreshAmmo()
+	end
+	log.info(deployed and "DEPLOYED — gameplay HUD enabled" or "PRE_DEPLOYMENT — gameplay HUD hidden")
+end
+
+function HUDController:_bindDeployState()
+	local player = self._player
+	self:_setDeployed(player:GetAttribute("Deployed") == true)
+	player:GetAttributeChangedSignal("Deployed"):Connect(function()
+		self:_setDeployed(player:GetAttribute("Deployed") == true)
+	end)
 end
 
 return HUDController

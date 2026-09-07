@@ -47,12 +47,23 @@ local log = Logger.scope(StartMenuController.Name)
 -- Lifecycle
 -- ---------------------------------------------------------------------------
 
+-- Deployment state. The Start Menu is a PRE_DEPLOYMENT screen: identity only.
+-- Gameplay HUD, camera and world only come alive once the SERVER confirms.
+local PRE_DEPLOYMENT = "PRE_DEPLOYMENT"
+local DEPLOYED = "DEPLOYED"
+
+-- How long to wait for the server's Game.Deployed ack before letting the
+-- player press PLAY again. Never closes the menu on its own.
+local DEPLOY_TIMEOUT = 10
+
 function StartMenuController:Init()
 	self._config = Config.Menu
 	self._player = Players.LocalPlayer
 	self._rows = {} :: { [string]: any }
 	self._selected = "Play" -- PLAY highlighted at rest
 	self._tweenInfo = TweenInfo.new(self._config.TransitionTime, Enum.EasingStyle.Quad, Enum.EasingStyle.Out)
+	self._state = PRE_DEPLOYMENT
+	self._deploying = false -- a request is in flight; blocks double-clicks
 	-- NOTE: the deploy remote is fetched lazily (in _play) via task.spawn so a
 	-- not-yet-created remote can never block the client bootstrap / menu build.
 end
@@ -63,7 +74,59 @@ function StartMenuController:Start()
 	self:_bindPlayerData()
 	self:_loadAvatar()
 	self:_showScreen("menu")
-	log.info("start menu online")
+	self:_bindDeployment()
+	log.info("start menu online (PRE_DEPLOYMENT)")
+end
+
+-- ---------------------------------------------------------------------------
+-- Deployment confirmation (server-authoritative)
+-- ---------------------------------------------------------------------------
+
+--[[
+	The menu only closes on the SERVER's word. We listen on two channels that
+	both originate server-side:
+	  1. Remotes.Game.Deployed — the explicit ack GameService fires.
+	  2. the replicated "Deployed" player attribute — covers a rejoin where the
+	     ack was fired before this controller was listening.
+	Neither can be forged by this client.
+]]
+function StartMenuController:_bindDeployment()
+	local player = self._player
+
+	task.spawn(function()
+		local deployed = Remotes.getEvent("Game", "Deployed")
+		deployed.OnClientEvent:Connect(function()
+			self:_onDeployConfirmed("server ack")
+		end)
+	end)
+
+	player:GetAttributeChangedSignal("Deployed"):Connect(function()
+		if player:GetAttribute("Deployed") == true then
+			self:_onDeployConfirmed("attribute")
+		end
+	end)
+
+	-- Already deployed when the menu came up (rejoin / respawn edge case).
+	if player:GetAttribute("Deployed") == true then
+		self:_onDeployConfirmed("already deployed")
+	end
+end
+
+function StartMenuController:_onDeployConfirmed(source: string)
+	if self._state == DEPLOYED then
+		return
+	end
+	self._state = DEPLOYED
+	self._deploying = false
+
+	-- Close the Start Menu and hand the camera back to the character.
+	self._gui.Enabled = false
+	self:_teardownCamera()
+	log.info(string.format("DEPLOYED (%s) — menu closed, gameplay camera restored", source))
+end
+
+function StartMenuController:isDeployed(): boolean
+	return self._state == DEPLOYED
 end
 
 -- ---------------------------------------------------------------------------
@@ -137,6 +200,11 @@ function StartMenuController:_makeRow(parent: Instance, id: string, text: string
 	button.Text = ""
 	button.Size = UDim2.fromOffset(440, 56)
 	button.Position = UDim2.fromOffset(0, y)
+	-- Explicit input properties + a ZIndex above the decorative layer, so
+	-- nothing in the menu can ever sit over the hit area and swallow clicks.
+	button.Active = true
+	button.Selectable = true
+	button.ZIndex = 5
 	button.Parent = parent
 
 	-- Vertical selection indicator
@@ -148,6 +216,7 @@ function StartMenuController:_makeRow(parent: Instance, id: string, text: string
 	indicator.AnchorPoint = Vector2.new(0, 0.5)
 	indicator.Position = UDim2.new(0, 0, 0.5, 0)
 	indicator.Size = UDim2.fromOffset(3, 40)
+	indicator.ZIndex = 6
 	indicator.Parent = button
 
 	local arrow = Theme.label(button, "▶", 20, Theme.Colors.TextGray, Theme.FontBold)
@@ -155,11 +224,13 @@ function StartMenuController:_makeRow(parent: Instance, id: string, text: string
 	arrow.Position = UDim2.new(0, 22, 0.5, 0)
 	arrow.Size = UDim2.fromOffset(26, 26)
 	arrow.TextXAlignment = Enum.TextXAlignment.Center
+	arrow.ZIndex = 6
 
 	local textLabel = Theme.label(button, text, 32, Theme.Colors.TextGray, Theme.FontBold)
 	textLabel.AnchorPoint = Vector2.new(0, 0.5)
 	textLabel.Position = UDim2.new(0, 58, 0.5, 0)
 	textLabel.Size = UDim2.fromOffset(360, 40)
+	textLabel.ZIndex = 6
 
 	local handle = {
 		id = id,
@@ -179,7 +250,10 @@ function StartMenuController:_makeRow(parent: Instance, id: string, text: string
 		handle.hovered = false
 		self:_refreshRow(handle)
 	end)
+	-- Logged so a dead button is instantly distinguishable from a dead flow:
+	-- if you click and see nothing here, the problem is input, not the server.
 	button.Activated:Connect(function()
+		log.info(string.format("%s clicked", id))
 		self:_onRowActivated(id)
 	end)
 
@@ -303,9 +377,15 @@ end
 -- ---------------------------------------------------------------------------
 
 function StartMenuController:_showScreen(which: string)
+	-- Once deployed the whole menu is gone; nothing may bring it back.
+	if self._state == DEPLOYED then
+		return
+	end
+
 	self._menuLayer.Visible = which == "menu"
 	self._settingsFrame.Visible = which == "settings"
 	self._profile.frame.Visible = which == "profile"
+	log.info("screen -> " .. which)
 
 	if which == "menu" then
 		-- SETTINGS/PROFILE were reached from the menu; PLAY is the resting choice.
@@ -320,18 +400,35 @@ end
 -- PLAY -> deploy
 -- ---------------------------------------------------------------------------
 
+--[[
+	PLAY. Sends the deploy INTENT and stops there — the menu stays open and the
+	camera stays on the menu shot until the server confirms via Game.Deployed
+	(see _onDeployConfirmed). Deployment is never faked locally: if the server
+	refuses or fails to spawn the player, the menu correctly stays up.
+]]
 function StartMenuController:_play()
-	-- Fire the server deploy intent (GameSystem handles it; real spawn logic
-	-- grows in SpawnSystem). Fetched + fired in a task so a missing/late remote
-	-- can never block the UI. Then close the menu and return the camera.
+	if self._state == DEPLOYED then
+		return
+	end
+	if self._deploying then
+		return -- request already in flight; ignore mashing
+	end
+	self._deploying = true
+	log.info("PLAY pressed — requesting deploy from server")
+
 	task.spawn(function()
 		local ev = self._requestDeploy or Remotes.getEvent("Game", "RequestDeploy")
 		self._requestDeploy = ev
 		ev:FireServer()
 	end)
-	self._gui.Enabled = false
-	self:_teardownCamera()
-	log.info("PLAY -> deploy requested")
+
+	-- If the server never answers, let them try again rather than hanging.
+	task.delay(DEPLOY_TIMEOUT, function()
+		if self._state ~= DEPLOYED and self._deploying then
+			self._deploying = false
+			log.warn(string.format("no deploy confirmation after %ds — PLAY re-enabled", DEPLOY_TIMEOUT))
+		end
+	end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -465,13 +562,31 @@ function StartMenuController:_teardownCamera()
 		self._camConn = nil
 	end
 	local cam = self._camera or Workspace.CurrentCamera
-	if cam then
-		cam.CameraType = Enum.CameraType.Custom
-		local char = self._player.Character
-		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-		if humanoid then
+	if not cam then
+		return
+	end
+	cam.CameraType = Enum.CameraType.Custom
+	cam.FieldOfView = 70 -- undo the menu's cinematic FOV
+
+	local function follow(character: Model)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+			or character:WaitForChild("Humanoid", 5)
+		if humanoid and humanoid:IsA("Humanoid") then
 			cam.CameraSubject = humanoid
 		end
+	end
+
+	local character = self._player.Character
+	if character then
+		follow(character)
+	else
+		-- The character may still be replicating from the server's spawn; grab
+		-- it the moment it arrives so the camera never sits orphaned.
+		local connection
+		connection = self._player.CharacterAdded:Connect(function(newCharacter)
+			connection:Disconnect()
+			follow(newCharacter)
+		end)
 	end
 end
 
