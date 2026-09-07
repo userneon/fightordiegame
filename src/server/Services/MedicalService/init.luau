@@ -154,7 +154,7 @@ function MedicalService:_completeTreat(medic: Player, target: Player)
 		-- Revive costs morphine if the medic carries it, otherwise a medkit.
 		local consumed = false
 		if inventory then
-			consumed = inventory:removeItem(target and medic or medic, "MORPHINE", 1) > 0
+			consumed = inventory:removeItem(medic, "MORPHINE", 1) > 0
 				or inventory:removeItem(medic, "MEDKIT", 1) > 0
 		end
 		if inventory and not consumed then

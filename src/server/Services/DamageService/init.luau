@@ -115,8 +115,9 @@ function DamageService:applyDamage(victim: Player, info: DamageInfo): number
 	local damage = info.amount * zoneDef.multiplier * scale
 
 	-- 2. armour
+	-- Head is helmet-protected; Chest is plate-protected. Limbs are not.
 	local absorbed = 0
-	if not info.ignoreArmor and zoneDef.armorable or (not info.ignoreArmor and zone == "Chest") then
+	if not info.ignoreArmor and (zoneDef.armorable or zone == "Chest") then
 		local armor = Registry.get("ArmorService")
 		if armor then
 			damage, absorbed = armor:absorb(victim, zone, damage, info.penetration)

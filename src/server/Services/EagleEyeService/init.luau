@@ -86,7 +86,10 @@ end
 local function rootOf(player: Player): BasePart?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	return (root and root:IsA("BasePart")) and root.Position and root or nil
+	if root and root:IsA("BasePart") then
+		return root
+	end
+	return nil
 end
 
 --[[
